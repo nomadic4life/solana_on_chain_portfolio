@@ -33,7 +33,7 @@ pub mod solana_on_chain_portfolio {
 
         new_profile_header.authority = authority.key();
         new_profile_header.vouch_nonce = 0;
-        new_profile_header.notifications = Vec::new();
+        // new_profile_header.notifications = Vec::new();
 
         program_authority.nonce += 1;
 
@@ -75,13 +75,13 @@ pub mod solana_on_chain_portfolio {
                             }
 
                             Method::Update { index, content } => {
-                                if profile.content[index].field == content.field {
-                                    profile.content[index] = content;
+                                if profile.content[index as usize].field == content.field {
+                                    profile.content[index as usize] = content;
                                 }
                             }
 
                             Method::Delete { index } => {
-                                profile.content.swap_remove(index);
+                                profile.content.swap_remove(index as usize);
                             }
                         }
                     }
@@ -95,13 +95,13 @@ pub mod solana_on_chain_portfolio {
                             }
 
                             Method::Update { index, content } => {
-                                if profile.social_media[index].field == content.field {
-                                    profile.social_media[index] = content;
+                                if profile.social_media[index as usize].field == content.field {
+                                    profile.social_media[index as usize] = content;
                                 }
                             }
 
                             Method::Delete { index } => {
-                                profile.social_media.swap_remove(index);
+                                profile.social_media.swap_remove(index as usize);
                             }
                         }
                     }
@@ -537,13 +537,13 @@ pub struct Project {
     //          delete  ->  [authority]
 }
 
-#[account]
+#[derive(AnchorDeserialize, AnchorSerialize, Clone)]
 pub struct Content {
     pub field: String,
     pub data: String,
 }
 
-#[account]
+#[derive(AnchorDeserialize, AnchorSerialize, Clone)]
 pub struct MessageNotification {
     //  MessageNotification
     //      DATA:
@@ -618,8 +618,8 @@ pub enum ProfileParams {
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub enum Method {
     Append { content: Content },
-    Update { index: usize, content: Content },
-    Delete { index: usize },
+    Update { index: u64, content: Content },
+    Delete { index: u64 },
 }
 
 #[error_code]
