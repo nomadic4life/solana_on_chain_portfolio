@@ -7,19 +7,44 @@ pub mod solana_on_chain_portfolio {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        let Initialize {
+            new_program_header, ..
+        } = ctx.accounts;
+
+        new_program_header.is_initialized = true;
+        new_program_header.is_authority = true;
+        new_program_header.nonce = 0;
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct Initialize {}
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
-//  ProgramHeader
-//      SEEDS:
-//          program_authority
-//          "header"
-//      DATA:
-//          portolio_nonce:  u64 -> index to a portfolio, the current nonce is the current index
+    #[account(
+        init,
+        payer = payer,
+        space = 8,
+        seeds = [b"authority"],
+        bump
+    )]
+    pub new_program_header: Account<'info, ProgramHeader>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[account]
+pub struct ProgramHeader {
+    //      SEEDS:
+    //          "authority"
+    //      DATA:
+    //          portolio_nonce:  u64 -> index to a portfolio, the current nonce is the current index
+    pub is_initialized: bool,
+    pub is_authority: bool,
+    pub nonce: u64,
+}
 
 //  Portfolio
 //      - indexing system of user portfolios, points to user_id
