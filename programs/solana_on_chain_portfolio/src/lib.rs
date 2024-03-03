@@ -16,6 +16,8 @@ pub mod solana_on_chain_portfolio {
         new_program_header.is_authority = true;
         new_program_header.nonce = 0;
 
+        new_program_header.bump = ctx.bumps.new_program_header;
+
         return Ok(());
     }
 
@@ -33,7 +35,7 @@ pub mod solana_on_chain_portfolio {
 
         new_profile_header.authority = authority.key();
         new_profile_header.vouch_nonce = 0;
-        // new_profile_header.notifications = Vec::new();
+        new_profile_header.notifications = Vec::new();
 
         program_authority.nonce += 1;
 
@@ -43,13 +45,12 @@ pub mod solana_on_chain_portfolio {
     pub fn initialize_portfolio(ctx: Context<InitializePortfolio>) -> Result<()> {
         let InitializePortfolio {
             authority,
-            new_portfolio,
+            profile_header,
             new_project_header,
             ..
         } = ctx.accounts;
 
-        new_portfolio.user_id = authority.key();
-        new_portfolio.protject_nonce = 0;
+        profile_header.has_portfolio = true;
 
         new_project_header.authority = authority.key();
         new_project_header.nonce = 0;
@@ -180,15 +181,15 @@ pub mod solana_on_chain_portfolio {
             // potential attack by spamming the notofication vec
             // added a few checks to reduce that. but best way would use a BTreeMap
             MessageParams::Append => {
-                let index = profile_header.last_index as usize;
-                if profile_header.notifications[index].sender != sender.key() {
-                    return err!(MessageError::SendAsUpdate);
-                }
+                // let index = profile_header.last_index as usize;
+                // if profile_header.notifications[index].sender != sender.key() {
+                //     return err!(MessageError::SendAsUpdate);
+                // }
 
-                let index = profile_header.notifications.len();
-                if profile_header.notifications[index].sender != sender.key() {
-                    return err!(MessageError::SendAsUpdate);
-                }
+                // let index = profile_header.notifications.len();
+                // if profile_header.notifications[index].sender != sender.key() {
+                //     return err!(MessageError::SendAsUpdate);
+                // }
                 profile_header.last_index = profile_header.notifications.len() as u64;
                 profile_header.notifications.push(MessageNotification {
                     sender: sender.key(),
@@ -282,6 +283,12 @@ pub struct InitializePortfolio<'info> {
     pub program_authority: Account<'info, ProgramHeader>,
 
     #[account(
+        mut,
+        has_one = authority
+    )]
+    pub profile_header: Account<'info, ProfileHeader>,
+
+    #[account(
         init,
         payer = authority,
         space = 8 + 32 + 8,
@@ -293,19 +300,6 @@ pub struct InitializePortfolio<'info> {
         bump
     )]
     pub new_project_header: Account<'info, ProjectHeader>,
-
-    #[account(
-        init,
-        payer = authority,
-        space = 8 + 32 + 8 + 8 + (8 + 8 + 32) + 20,
-        seeds = [
-            b"portolio",
-            program_authority.key().as_ref(),
-            program_authority.nonce.to_ne_bytes().as_ref()
-        ],
-        bump
-    )]
-    pub new_portfolio: Account<'info, Portfolio>,
 
     pub system_program: Program<'info, System>,
 }
@@ -348,7 +342,7 @@ pub struct AddProject<'info> {
             b"project",
             program_authority.key().as_ref(),
             authority.key().as_ref(),
-            project_header.nonce.to_ne_bytes().as_ref()
+            &project_header.nonce.to_be_bytes()
         ],
         bump
     )]
@@ -373,13 +367,14 @@ pub struct InitializeMessageHeader<'info> {
     #[account(mut)]
     pub sender: Signer<'info>,
 
+    /// CHECK: AccountInfo is an unchecked account, any account can be passed in
+    pub recipient: AccountInfo<'info>,
+
     #[account(
         seeds = [b"authority"],
-        bump
+        bump = program_authority.bump
     )]
     pub program_authority: Account<'info, ProgramHeader>,
-
-    pub recipient: Account<'info, Profile>,
 
     #[account(
         init,
@@ -404,7 +399,8 @@ pub struct PostMessage<'info> {
     #[account(mut)]
     pub sender: Signer<'info>,
 
-    pub recipient: Account<'info, Profile>,
+    /// CHECK: AccountInfo is an unchecked account, any account can be passed in
+    pub recipient: AccountInfo<'info>,
 
     #[account(
         mut,
@@ -431,7 +427,7 @@ pub struct PostMessage<'info> {
         seeds = [
             b"message",
             message_header.key().as_ref(),
-            message_header.nonce.to_ne_bytes().as_ref()
+            message_header.nonce.to_be_bytes().as_ref()
         ],
         bump
     )]
@@ -459,6 +455,7 @@ pub struct ProfileHeader {
     pub vouch_nonce: u64,
     pub last_index: u64,
     pub notifications: Vec<MessageNotification>,
+    pub has_portfolio: bool,
 }
 
 #[account]
