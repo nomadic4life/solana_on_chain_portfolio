@@ -21,8 +21,9 @@ pub mod solana_on_chain_portfolio {
     pub fn initialize_profile(ctx: Context<InitializeProfile>) -> Result<()> {
         let InitializeProfile {
             authority,
-            new_portfolio,
             new_profile,
+            new_portfolio,
+            new_project_header,
             program_authority,
             ..
         } = ctx.accounts;
@@ -34,6 +35,9 @@ pub mod solana_on_chain_portfolio {
 
         new_profile.authority = authority.key();
         new_profile.index = program_authority.nonce;
+
+        new_project_header.authority = authority.key();
+        new_project_header.nonce = 0;
 
         program_authority.nonce += 1;
 
@@ -94,6 +98,36 @@ pub mod solana_on_chain_portfolio {
 
         return Ok(());
     }
+
+    pub fn add_project(ctx: Context<AddProject>, url: String, description: String) -> Result<()> {
+        let AddProject {
+            authority,
+            project_header,
+            new_project,
+            ..
+        } = ctx.accounts;
+
+        new_project.authority = authority.key();
+        new_project.project_url = url;
+        new_project.description = description;
+
+        project_header.nonce += 1;
+
+        return Ok(());
+    }
+
+    pub fn update_project(
+        ctx: Context<UpdateProject>,
+        url: String,
+        description: String,
+    ) -> Result<()> {
+        let UpdateProject { project, .. } = ctx.accounts;
+
+        project.project_url = url;
+        project.description = description;
+
+        return Ok(());
+    }
 }
 
 #[derive(Accounts)]
@@ -117,6 +151,7 @@ pub struct Initialize<'info> {
 pub struct InitializeProfile<'info> {
     // create profile
     // create portfolio
+    // create project header
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -146,6 +181,19 @@ pub struct InitializeProfile<'info> {
         space = 8,
         seeds = [
             program_authority.key().as_ref(),
+            b"project-header",
+            authority.key().as_ref()
+        ],
+        bump
+    )]
+    pub new_project_header: Account<'info, ProjectHeader>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8,
+        seeds = [
+            program_authority.key().as_ref(),
             b"portolio",
             program_authority.nonce.to_ne_bytes().as_ref()
         ],
@@ -166,6 +214,52 @@ pub struct UpdateProfile<'info> {
         has_one = authority
     )]
     pub profile: Account<'info, Profile>,
+}
+
+#[derive(Accounts)]
+pub struct AddProject<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"authority"],
+        bump = program_authority.bump
+    )]
+    pub program_authority: Account<'info, ProgramHeader>,
+
+    #[account(
+        mut,
+        has_one = authority
+    )]
+    pub project_header: Account<'info, ProjectHeader>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8,
+        seeds = [
+            program_authority.key().as_ref(),
+            b"project",
+            authority.key().as_ref(),
+            project_header.nonce.to_ne_bytes().as_ref()
+        ],
+        bump
+    )]
+    pub new_project: Account<'info, Project>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateProject<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        has_one = authority,
+    )]
+    pub project: Account<'info, Project>,
 }
 
 #[account]
@@ -222,6 +316,43 @@ pub struct Portfolio {
 }
 
 #[account]
+pub struct ProjectHeader {
+    // ProjectHeader
+    //      SEEDS:
+    //          program_authority
+    //          "project-header"
+    //          user_id
+    //      DATA:
+    pub authority: Pubkey,
+    pub nonce: u64,
+    //      LOGIC:
+    //          create  ->  [program] created when new profile is created
+    //          read    ->  data is queriable
+    //          update  ->  [program]
+    //          delete  ->  [program]
+}
+
+#[account]
+pub struct Project {
+    // Project
+    //      SEEDS:
+    //          program_authority
+    //          "project"
+    //          user_id
+    //          nonce
+    //      DATA:
+    pub authority: Pubkey,
+    pub project_url: String,
+    pub description: String,
+    //       pub tags:           Vec<Tag>,
+    //      LOGIC:
+    //          create  ->  [authority]
+    //          read    ->  data is queriable
+    //          update  ->  [authority]
+    //          delete  ->  [authority]
+}
+
+#[account]
 pub struct Content {
     pub field: String,
     pub data: String,
@@ -243,36 +374,6 @@ pub enum Method {
     Update { index: usize, content: Content },
     Delete { index: usize },
 }
-
-// ProjectHeader
-//      SEEDS:
-//          program_authority
-//          "project-header"
-//          user_id
-//      DATA:
-//          authority:      Pubkey ? not need if program is authority
-//          nonce:          u64 -> number of projects
-//      LOGIC:
-//          create  ->  [program] created when new profile is created
-//          read    ->  data is queriable
-//          update  ->  [program]
-//          delete  ->  [program]
-
-// Project
-//      SEEDS:
-//          program_authority
-//          "project"
-//          user_id
-//          nonce
-//      DATA:
-//          authority:      Pubkey
-//          project_url:    String
-//          tags:           Vec<Tag>
-//      LOGIC:
-//          create  ->  [authority]
-//          read    ->  data is queriable
-//          update  ->  [authority]
-//          delete  ->  [authority]
 
 // Tag
 //      DATA:
