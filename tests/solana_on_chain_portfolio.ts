@@ -435,10 +435,6 @@ describe("solana_on_chain_portfolio", () => {
     }
 
     const data = hash.digest()
-    console.log(data)
-
-    console.log(Buffer.from([...data]))
-
     const [messageHeader] = anchor.web3.PublicKey.findProgramAddressSync(
       [
         Buffer.from("message-header"),
