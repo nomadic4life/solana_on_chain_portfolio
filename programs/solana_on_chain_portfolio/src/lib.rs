@@ -569,7 +569,7 @@ pub struct MessageHeader {
 }
 
 impl MessageHeader {
-    pub fn hash(members: [Pubkey; 2]) -> solana_program::hash::Hash {
+    pub fn hash(members: [Pubkey; 2]) -> Pubkey {
         let hash = &mut solana_program::hash::Hasher::default();
         if members[0] < members[1] {
             hash.hash(members[0].as_ref());
@@ -579,7 +579,7 @@ impl MessageHeader {
             hash.hash(members[0].as_ref());
         }
 
-        return hash.clone().result();
+        return Pubkey::new_from_array(hash.clone().result().to_bytes());
     }
 }
 
